@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel – FoodRush{% endblock %}
+{% block content %}
+
+<div class="admin-header">
+    <div class="container admin-header-inner">
+        <h1><i class="fas fa-user-shield"></i> Admin Panel</h1>
+        <div style="display:flex; align-items:center; gap: 16px;">
+            <span style="color:#94a3b8; font-size:.9rem;">{{ foods|length }} total items</span>
+            <a href="{{ url_for('admin_logout') }}" class="btn-outline-sm">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="admin-layout">
+        <!-- Add Food Form -->
+        <div class="admin-card">
+            <div class="admin-card-header"><i class="fas fa-plus-circle"></i> Add New Food Item</div>
+            <form method="POST" action="{{ url_for('admin_add') }}" enctype="multipart/form-data" class="admin-form">
+                <div class="form-group">
+                    <label>Food Name *</label>
+                    <input type="text" name="name" placeholder="e.g. Spicy Chicken Wings" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select name="category" required>
+                            <option value="">Select…</option>
+                            {% for c in ['Pizza','Burger','Biryani','Desserts','Drinks','Other'] %}
+                            <option value="{{ c }}">{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (₹) *</label>
+                        <input type="number" name="price" min="1" step="0.5" placeholder="199" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rating (0–5)</label>
+                        <input type="number" name="rating" min="0" max="5" step="0.1" placeholder="4.5" />
+                    </div>
+                    <div class="form-group">
+                        <label>Veg / Non-Veg</label>
+                        <select name="is_veg">
+                            <option value="1">🌿 Vegetarian</option>
+                            <option value="0">🍗 Non-Vegetarian</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="2" placeholder="Brief description…"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Tags (comma-separated)</label>
+                    <input type="text" name="tags" placeholder="spicy, popular, chicken" />
+                </div>
+                <div class="form-group">
+                    <label>Image File</label>
+                    <input type="file" name="image" accept="image/*" />
+                </div>
+                <button type="submit" class="btn-gradient btn-block">
+                    <i class="fas fa-plus"></i> Add Food Item
+                </button>
+            </form>
+        </div>
+
+        <!-- Food List -->
+        <div class="admin-card">
+            <div class="admin-card-header"><i class="fas fa-list"></i> All Food Items</div>
+            <div class="admin-food-list">
+                <input type="text" class="admin-search" placeholder="Search items…"
+                    oninput="document.querySelectorAll('[data-name]').forEach(r => r.style.display = r.dataset.name.includes(this.value.toLowerCase()) ? '' : 'none')" />
+                <div class="food-list-scroll">
+                    {% for food in foods %}
+                    <div class="food-list-item" data-name="{{ food.name|lower }}">
+                        <img class="food-list-img" src="{{ url_for('static', filename='images/' + food.image) }}"
+                            alt="{{ food.name }}" data-default="{{ url_for('static', filename='images/default.png') }}"
+                            onerror="this.src=this.dataset.default" />
+                        <div>
+                            <div class="food-list-name">{{ food.name }}</div>
+                            <div class="food-list-cat">{{ food.category }}</div>
+                            <div class="food-list-price">₹{{ food.price | int }}</div>
+                        </div>
+                        <div class="food-list-actions">
+                            <button class="btn-icon btn-icon-edit" data-id="{{ food.id }}"
+                                data-name="{{ food.name|replace('"', ' &quot;') }}" data-price="{{ food.price }}"
+                                data-desc="{{ food.description|replace('"', ' &quot;') }}" data-tags="{{ food.tags }}"
+                                data-avail="{{ food.is_available }}" onclick="openEditFromBtn(this)" title="Edit"><i
+                                    class="fas fa-edit"></i>
+                            </button>
+                            <form method="POST" action="/admin/delete/{{ food.id }}" style="display:inline"
+                                data-name="{{ food.name }}"
+                                onsubmit="return confirm('Delete ' + this.dataset.name + '?')">
+                                <button type="submit" class="btn-icon btn-icon-del" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- Inline edit form -->
+                    <div class="edit-form" id="editForm{{ food.id }}">
+                        <form method="POST" action="/admin/edit/{{ food.id }}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" name="name" value="{{ food.name }}" required />
+                                </div>
+                                <div class="form-group">
+                                    <label>Price (₹)</label>
+                                    <input type="number" name="price" value="{{ food.price }}" required />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="description" rows="2">{{ food.description }}</textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tags</label>
+                                    <input type="text" name="tags" value="{{ food.tags }}" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Available</label>
+                                    <select name="is_available">
+                                        <option value="1" {% if food.is_available %}selected{% endif %}>✅ Yes</option>
+                                        <option value="0" {% if not food.is_available %}selected{% endif %}>❌ No
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="submit" class="btn-gradient">Save</button>
+                                <button type="button" class="btn-outline" data-id="{{ food.id }}"
+                                    onclick="closeEdit(this.dataset.id)">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openEditFromBtn(btn) {
+        var id = btn.dataset.id;
+        closeAllEdits();
+        document.getElementById('editForm' + id)?.classList.add('open');
+    }
+    function openEdit(id) {
+        closeAllEdits();
+        document.getElementById('editForm' + id)?.classList.add('open');
+    }
+    function closeEdit(id) {
+        document.getElementById('editForm' + id)?.classList.remove('open');
+    }
+    function closeAllEdits() {
+        document.querySelectorAll('.edit-form').forEach(f => f.classList.remove('open'));
+    }
+</script>
+{% endblock %}

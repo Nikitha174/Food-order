@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}FoodRush – Home{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content container">
+        <div class="hero-text">
+            <span class="hero-badge">🚀 Fast Delivery in 30 mins</span>
+            <h1>Craving Something <span class="accent-text">Delicious?</span></h1>
+            <p>Discover mouth-watering meals, delivered fresh to your door.</p>
+            <div class="hero-search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="heroSearch" placeholder="Search for pizza, biryani, burgers…"
+                    autocomplete="off" />
+                <div class="search-suggestions" id="heroSuggestions"></div>
+                <button onclick="doHeroSearch()" class="btn-hero-search">Search</button>
+            </div>
+            {% if not current_user %}
+            <div class="hero-cta">
+                <a href="{{ url_for('register') }}" class="btn-gradient">Get Started <i
+                        class="fas fa-arrow-right"></i></a>
+                <a href="{{ url_for('login') }}" class="btn-outline-hero">Login</a>
+            </div>
+            {% endif %}
+            <div class="hero-stats">
+                <div class="stat"><strong>500+</strong><span>Dishes</span></div>
+                <div class="stat"><strong>4.8★</strong><span>Rating</span></div>
+                <div class="stat"><strong>30min</strong><span>Delivery</span></div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-food-circle">
+                <div class="orbit orbit-1"><span>🍕</span></div>
+                <div class="orbit orbit-2"><span>🍔</span></div>
+                <div class="orbit orbit-3"><span>🍛</span></div>
+                <div class="orbit orbit-4"><span>🍰</span></div>
+                <div class="center-emoji">🍽️</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Day filter banner -->
+{% if day_filter_active %}
+<div class="day-banner {{ 'banner-veg' if day_filter_type=='veg' else 'banner-nonveg' }}">
+    <div class="container day-banner-inner">
+        <span>{{ day_filter_label }}</span>
+        <a href="/?override=1" class="btn-override">Show All <i class="fas fa-th"></i></a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Categories -->
+<section class="categories-section">
+    <div class="container">
+        <h2 class="section-title">What are you <span class="accent-text">craving?</span></h2>
+        <div class="category-chips">
+            {% for cat, emoji in
+            [('All','🍽️'),('Pizza','🍕'),('Burger','🍔'),('Biryani','🍛'),('Desserts','🍰'),('Drinks','🥤')] %}
+            <a href="/?category={{ cat }}"
+                class="chip {% if category==cat or (cat=='All' and not category) %}chip-active{% endif %}">
+                <span>{{ emoji }}</span> {{ cat }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Food Grid -->
+<section class="food-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">
+                {% if search %}Results for "<em>{{ search }}</em>"
+                {% elif category and category!='All' %}{{ category }}
+                {% elif day_filter_active %}{{ '🌿 Veg Menu' if day_filter_type=='veg' else '🍗 Non-Veg Menu' }}
+                {% else %}🔥 Popular Near You{% endif %}
+            </h2>
+            {% if search or (category and category!='All') %}
+            <a href="/" class="btn-outline">Clear ✕</a>
+            {% endif %}
+        </div>
+        {% if foods %}
+        <div class="food-grid" id="foodGrid">
+            {% for food in foods %}
+            <div class="food-card">
+                <div class="card-img-wrap">
+                    <img src="{{ url_for('static', filename='images/' + food.image) }}" alt="{{ food.name }}"
+                        data-default="{{ url_for('static', filename='images/default.png') }}"
+                        onerror="this.src=this.dataset.default" />
+                    <span class="veg-badge {{ 'veg' if food.is_veg else 'non-veg' }}">
+                        {{ '🌿 Veg' if food.is_veg else '🍗' }}
+                    </span>
+                    <div class="card-overlay">
+                        <a href="{{ url_for('food_detail', food_id=food.id) }}" class="btn-view">View Details</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-meta">
+                        <span class="card-cat">{{ food.category }}</span>
+                        <span class="card-rating">⭐ {{ food.rating }}</span>
+                    </div>
+                    <h3 class="card-name">{{ food.name }}</h3>
+                    <p class="card-desc">{{ food.description[:65] }}{% if food.description|length > 65 %}…{% endif %}
+                    </p>
+                    <div class="card-footer">
+                        <span class="card-price">₹{{ food.price | int }}</span>
+                        <button class="btn-add" data-id="{{ food.id }}" onclick="addToCart(+this.dataset.id, this)">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🍽️</div>
+            <h3>No food found!</h3>
+            <p>Try a different search or browse categories above.</p>
+            <a href="/" class="btn-gradient">Browse All</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Why FoodRush -->
+<section class="why-section">
+    <div class="container">
+        <h2 class="section-title text-center">Why <span class="accent-text">FoodRush?</span></h2>
+        <div class="why-grid">
+            <div class="why-card">
+                <div class="why-icon">⚡</div>
+                <h3>Fast Delivery</h3>
+                <p>Under 30 minutes, every time.</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🌟</div>
+                <h3>Top Quality</h3>
+                <p>Finest ingredients, best restaurants.</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🤖</div>
+                <h3>AI Assistant</h3>
+                <p>Voice-powered smart food chatbot.</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🥗</div>
+                <h3>Smart Filter</h3>
+                <p>Veg/Non-Veg auto-filter by your plan.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function doHeroSearch() {
+        const q = document.getElementById('heroSearch').value.trim();
+        if (q) window.location.href = '/?search=' + encodeURIComponent(q);
+    }
+    document.getElementById('heroSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doHeroSearch(); });
+    document.getElementById('heroSearch').addEventListener('input', function () {
+        fetchSuggestions(this.value, 'heroSuggestions', 'heroSearch');
+    });
+</script>
+{% endblock %}

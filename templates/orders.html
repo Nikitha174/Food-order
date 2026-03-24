@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}My Orders – FoodRush{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-receipt"></i> My Orders</h1>
+        <p>Your order history and recommendations</p>
+    </div>
+</div>
+
+<section class="orders-section">
+    <div class="container">
+        {% if order_history %}
+        <div class="orders-list">
+            {% for order in order_history %}
+            <div class="order-card">
+                <div class="order-card-head">
+                    <div>
+                        <span class="order-id">#ORDER{{ order.id }}</span>
+                        <span class="order-date">{{ order.created_at[:16] }}</span>
+                    </div>
+                    <span class="order-status status-{{ order.status|lower }}">
+                        <i class="fas fa-check-circle"></i> {{ order.status }}
+                    </span>
+                </div>
+                <div class="order-items-list">
+                    {% for item in order['items'] %}
+                    <div class="order-item-row">
+                        <span>{{ item.name }}</span>
+                        <span>x{{ item.qty }}</span>
+                        <span>₹{{ item.price | int }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="order-foot">
+                    <span>📍 {{ order.address or 'N/A' }}</span>
+                    <strong>Total: ₹{{ (order.total * 1.05) | int }}</strong>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h3>No orders yet!</h3>
+            <p>Start ordering your favourite food.</p>
+            <a href="{{ url_for('index') }}" class="btn-gradient">Order Now</a>
+        </div>
+        {% endif %}
+
+        {% if recommendations %}
+        <div class="rec-section">
+            <h2>🌟 Recommended For You</h2>
+            <p class="rec-subtitle">Top-rated dishes loved by our customers</p>
+            <div class="food-grid">
+                {% for food in recommendations %}
+                <div class="food-card">
+                    <div class="card-img-wrap">
+                        <img src="{{ url_for('static', filename='images/' + food.image) }}" alt="{{ food.name }}"
+                            data-default="{{ url_for('static', filename='images/default.png') }}"
+                            onerror="this.src=this.dataset.default" />
+                        <span class="veg-badge {{ 'veg' if food.is_veg else 'non-veg' }}">
+                            {{ '🌿 Veg' if food.is_veg else '🍗' }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-meta">
+                            <span class="card-cat">{{ food.category }}</span>
+                            <span class="card-rating">⭐ {{ food.rating }}</span>
+                        </div>
+                        <h3 class="card-name">{{ food.name }}</h3>
+                        <div class="card-footer">
+                            <span class="card-price">₹{{ food.price | int }}</span>
+                            <button class="btn-add" data-id="{{ food.id }}" onclick="addToCart(+this.dataset.id, this)">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

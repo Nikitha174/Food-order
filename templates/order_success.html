@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Order Placed! – FoodRush{% endblock %}
+{% block content %}
+<section class="success-section">
+    <div class="success-card">
+        <div class="success-icon">🎉</div>
+        <h1>Order Placed!</h1>
+        <p style="color:var(--text-light); margin-bottom: 28px;">
+            Thank you! Your order <strong>#ORDER{{ order.id }}</strong> has been confirmed and is being prepared.
+        </p>
+
+        <div
+            style="background: var(--bg); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px; text-align: left;">
+            <h3 style="margin-bottom: 14px; font-size:1rem;">Order Summary</h3>
+            {% for item in items %}
+            <div
+                style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size:.9rem;">
+                <span>{{ item.name }} × {{ item.qty }}</span>
+                <span>₹{{ item.price | int }}</span>
+            </div>
+            {% endfor %}
+            <div
+                style="display:flex; justify-content:space-between; font-weight:800; color:var(--primary); margin-top: 12px;">
+                <span>Total Paid</span>
+                <span>₹{{ (order.total * 1.05) | int }}</span>
+            </div>
+        </div>
+
+        <p style="font-size:.9rem; color:var(--text-light); margin-bottom: 28px;">
+            <i class="fas fa-clock"></i> Estimated delivery: <strong>25–35 minutes</strong>
+        </p>
+
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <a href="{{ url_for('orders') }}" class="btn-gradient">
+                <i class="fas fa-receipt"></i> View Orders
+            </a>
+            <a href="{{ url_for('index') }}" class="btn-outline">
+                <i class="fas fa-home"></i> Back to Menu
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

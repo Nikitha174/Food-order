@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}My Cart – FoodRush{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-shopping-cart"></i> My Cart</h1>
+        <p>{{ items|length }} item(s) ready to order</p>
+    </div>
+</div>
+
+<section class="cart-section">
+    <div class="container">
+        {% if items %}
+        <div class="cart-layout">
+            <!-- Items -->
+            <div class="cart-card">
+                <div class="cart-card-header"><i class="fas fa-utensils"></i> Your Items</div>
+                {% for item in items %}
+                <div class="cart-item" id="cartItem{{ item.cart_id }}" style="transition: opacity .3s, transform .3s;">
+                    <img class="cart-img" src="{{ url_for('static', filename='images/' + item.image) }}"
+                        alt="{{ item.name }}" data-default="{{ url_for('static', filename='images/default.png') }}"
+                        onerror="this.src=this.dataset.default" />
+                    <div class="cart-item-info">
+                        <h4>{{ item.name }}</h4>
+                        <div class="cart-cat">{{ item.category }}</div>
+                        <div class="item-price">₹{{ item.price | int }} each</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+                        <div class="cart-controls">
+                            <button class="qty-btn" data-id="{{ item.cart_id }}" data-action="dec"
+                                onclick="updateCart(+this.dataset.id, this.dataset.action)"><i
+                                    class="fas fa-minus"></i></button>
+                            <span class="qty-count" id="qty{{ item.cart_id }}">{{ item.quantity }}</span>
+                            <button class="qty-btn" data-id="{{ item.cart_id }}" data-action="inc"
+                                onclick="updateCart(+this.dataset.id, this.dataset.action)"><i
+                                    class="fas fa-plus"></i></button>
+                        </div>
+                        <button class="del-btn" data-id="{{ item.cart_id }}" data-action="del"
+                            onclick="updateCart(+this.dataset.id, this.dataset.action)" title="Remove"><i
+                                class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Summary -->
+            <div class="order-summary">
+                <h3>Order Summary</h3>
+                <div class="summary-row"><span>Subtotal</span><span id="summarySubtotal">₹{{ total | int }}</span></div>
+                <div class="summary-row"><span>Delivery</span><span
+                        style="color:var(--green); font-weight:700;">FREE</span></div>
+                <div class="summary-row"><span>Taxes (5%)</span><span id="summaryTax">₹{{ (total * 0.05) | int }}</span>
+                </div>
+                <div class="summary-row total"><span>Total</span><span id="summaryTotal">₹{{ (total * 1.05) | int
+                        }}</span></div>
+                <a href="{{ url_for('checkout') }}" class="btn-gradient btn-block" style="margin-bottom: 10px;">
+                    <i class="fas fa-lock"></i> Proceed to Checkout
+                </a>
+                <a href="{{ url_for('index') }}" class="btn-outline btn-block">
+                    <i class="fas fa-arrow-left"></i> Continue Shopping
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🛒</div>
+            <h3>Your cart is empty!</h3>
+            <p>Add some delicious food to get started.</p>
+            <a href="{{ url_for('index') }}" class="btn-gradient">Browse Menu</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+    async function updateCart(cartId, action) {
+        try {
+            const res = await fetch('/update-cart', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cart_id: cartId, action })
+            });
+            const data = await res.json();
+            if (action === 'del') {
+                const el = document.getElementById('cartItem' + cartId);
+                if (el) { el.style.opacity = '0'; el.style.transform = 'translateX(30px)'; setTimeout(() => el.remove(), 300); }
+            } else {
+                const qEl = document.getElementById('qty' + cartId);
+                if (qEl) {
+                    const cur = parseInt(qEl.textContent);
+                    qEl.textContent = action === 'inc' ? cur + 1 : Math.max(1, cur - 1);
+                }
+            }
+            document.getElementById('summarySubtotal').textContent = '₹' + Math.round(data.total);
+            document.getElementById('summaryTax').textContent = '₹' + Math.round(data.total * 0.05);
+            document.getElementById('summaryTotal').textContent = '₹' + Math.round(data.total * 1.05);
+            document.querySelectorAll('#cartBadge, .cart-badge-sm').forEach(el => el.textContent = data.cart_count);
+        } catch (e) { console.error(e); }
+    }
+</script>
+{% endblock %}

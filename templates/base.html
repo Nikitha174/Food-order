@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}FoodRush{% endblock %}</title>
+  <meta name="description" content="FoodRush – delicious food delivered fast with AI recommendations." />
+
+  <!-- ── PWA Meta Tags ──────────────────────────────────────────────────── -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FoodRush" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- ── Navbar ─────────────────────────────────────────────────────────── -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="{{ url_for('index') }}" class="nav-logo">
+        <span>🍔</span><strong>Food<span class="accent">Rush</span></strong>
+      </a>
+
+      <div class="nav-search">
+        <i class="fas fa-search"></i>
+        <input type="text" id="navSearchInput" placeholder="Search food…" autocomplete="off" />
+        <div class="search-suggestions" id="searchSuggestions"></div>
+      </div>
+
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint=='index' %}active{% endif %}">
+          <i class="fas fa-home"></i> Home
+        </a>
+        <a href="{{ url_for('orders') }}" class="nav-link {% if request.endpoint=='orders' %}active{% endif %}">
+          <i class="fas fa-receipt"></i> Orders
+        </a>
+        <a href="{{ url_for('cart') }}" class="nav-link cart-link {% if request.endpoint=='cart' %}active{% endif %}">
+          <i class="fas fa-shopping-cart"></i>
+          <span class="cart-badge" id="cartBadge">{{ cart_count }}</span>
+        </a>
+
+        {% if current_user %}
+        <div class="user-dropdown" id="userDropdown">
+          <button class="user-avatar-btn" onclick="toggleDropdown()">
+            <span class="avatar-circle">{{ current_user.name[0].upper() }}</span>
+            <span class="user-name">{{ current_user.name.split()[0] }}</span>
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu" id="dropdownMenu">
+            <a href="{{ url_for('profile') }}" class="dropdown-item"><i class="fas fa-user-cog"></i> Preferences</a>
+            <a href="{{ url_for('orders') }}" class="dropdown-item"><i class="fas fa-receipt"></i> My Orders</a>
+            <div class="dropdown-divider"></div>
+            <a href="{{ url_for('logout') }}" class="dropdown-item danger"><i class="fas fa-sign-out-alt"></i>
+              Logout</a>
+          </div>
+        </div>
+        {% elif request.endpoint != 'index' %}
+        <a href="{{ url_for('login') }}" class="btn-outline-sm {% if request.endpoint=='login' %}active{% endif %}">
+          Login
+        </a>
+        <a href="{{ url_for('register') }}" class="btn-primary-sm">Sign Up</a>
+        {% endif %}
+      </div>
+
+      <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Home</a>
+      <a href="{{ url_for('orders') }}"><i class="fas fa-receipt"></i> Orders</a>
+      <a href="{{ url_for('cart') }}"><i class="fas fa-shopping-cart"></i> Cart
+        <span class="cart-badge-sm">{{ cart_count }}</span>
+      </a>
+      {% if current_user %}
+      <a href="{{ url_for('profile') }}"><i class="fas fa-user-cog"></i> Preferences</a>
+      <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      {% else %}
+      <a href="{{ url_for('login') }}"><i class="fas fa-sign-in-alt"></i> Login</a>
+      <a href="{{ url_for('register') }}"><i class="fas fa-user-plus"></i> Sign Up</a>
+      {% endif %}
+      <a href="{{ url_for('admin') }}"><i class="fas fa-user-shield"></i> Admin</a>
+    </div>
+  </nav>
+
+  <!-- ── Flash Messages ──────────────────────────────────────────────────── -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for cat, msg in messages %}
+    <div class="flash flash-{{ cat }}">
+      <span>{{ msg }}</span>
+      <button onclick="this.parentElement.remove()">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- ── Content ─────────────────────────────────────────────────────────── -->
+  <main>{% block content %}{% endblock %}</main>
+
+  <!-- ── PWA Install Banner ───────────────────────────────────────────────── -->
+  <div id="pwaInstallBanner" style="
+      display:none; position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      background:linear-gradient(135deg,#7c3aed,#db2777); color:#fff;
+      padding:14px 20px; border-radius:16px; z-index:9999;
+      box-shadow:0 8px 32px rgba(124,58,237,.5); max-width:340px; width:90%;
+      align-items:center; gap:12px; font-family:Poppins,sans-serif;">
+    <span style="font-size:1.5rem;">🍔</span>
+    <div style="flex:1;">
+      <strong style="display:block;font-size:.95rem;">Install FoodRush App</strong>
+      <small style="opacity:.85;">Add to home screen for the best experience!</small>
+    </div>
+    <button id="pwaInstallBtn" style="
+        background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4);
+        color:#fff; padding:8px 16px; border-radius:50px; cursor:pointer;
+        font-family:Poppins,sans-serif; font-weight:600; white-space:nowrap;">
+      Install
+    </button>
+    <button id="pwaInstallDismiss" style="
+        background:none; border:none; color:rgba(255,255,255,.7);
+        cursor:pointer; font-size:1.1rem; padding:4px;">✕</button>
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="footer-inner container">
+      <div>
+        <div class="footer-logo">🍔 <strong>FoodRush</strong></div>
+        <p>Delicious food, delivered fast.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Quick Links</h4>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('cart') }}">Cart</a>
+        <a href="{{ url_for('orders') }}">My Orders</a>
+        {% if current_user %}<a href="{{ url_for('profile') }}">Preferences</a>{% endif %}
+      </div>
+      <div class="footer-links">
+        <h4>Categories</h4>
+        <a href="/?category=Pizza">🍕 Pizza</a>
+        <a href="/?category=Burger">🍔 Burger</a>
+        <a href="/?category=Biryani">🍛 Biryani</a>
+        <a href="/?category=Desserts">🍰 Desserts</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2024 FoodRush. Made with ❤️ and 🌶️
+        &nbsp;·&nbsp; <span style="opacity:.6;font-size:.8rem;">📱 Install as App</span>
+      </p>
+    </div>
+  </footer>
+
+  <!-- ── Chatbot Widget ──────────────────────────────────────────────────── -->
+  <div class="chatbot-fab" id="chatbotFab" title="AI Food Assistant">
+    <i class="fas fa-robot"></i>
+    <span class="fab-pulse"></span>
+  </div>
+  <div class="chatbot-window" id="chatbotWindow">
+    <div class="chatbot-header">
+      <div class="chatbot-avatar"><i class="fas fa-robot"></i></div>
+      <div>
+        <strong>FoodBot AI</strong>
+        <small>Voice & text orders</small>
+      </div>
+      <button class="chatbot-close" id="chatbotClose"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="chatbot-messages" id="chatbotMessages">
+      <div class="chat-msg bot">
+        <div class="chat-bubble">
+          👋 Hi! I'm your AI food assistant.<br>
+          Try: <em>"Show spicy veg food"</em><br>
+          Or click 🎙️ and speak your order!
+        </div>
+      </div>
+    </div>
+    <div class="chatbot-input-area">
+      <button id="chatbotVoiceBtn" class="voice-btn" title="Speak"><i class="fas fa-microphone"></i></button>
+      <input type="text" id="chatbotInput" placeholder="Ask me about food…" autocomplete="off" />
+      <button id="chatbotSend"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+
+  <!-- ── Cart Toast ──────────────────────────────────────────────────────── -->
+  <div class="cart-toast" id="cartToast"><i class="fas fa-check-circle"></i> Added to cart!</div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    function toggleDropdown() {
+      document.getElementById('dropdownMenu').classList.toggle('open');
+    }
+    document.addEventListener('click', function (e) {
+      const dd = document.getElementById('userDropdown');
+      if (dd && !dd.contains(e.target)) document.getElementById('dropdownMenu')?.classList.remove('open');
+    });
+    document.getElementById('hamburger').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.toggle('open');
+    });
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+    });
+    document.getElementById('navSearchInput')?.addEventListener('input', function () {
+      fetchSuggestions(this.value, 'searchSuggestions', 'navSearchInput');
+    });
+    document.getElementById('navSearchInput')?.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && this.value.trim())
+        window.location.href = '/?search=' + encodeURIComponent(this.value.trim());
+    });
+    document.addEventListener('click', e => {
+      document.querySelectorAll('.search-suggestions').forEach(el => {
+        if (!el.closest('.nav-search, .hero-search-bar')?.contains(e.target)) el.innerHTML = '';
+      });
+    });
+    setTimeout(() => document.querySelectorAll('.flash').forEach(el => el.remove()), 4500);
+  </script>
+  {% block extra_js %}{% endblock %}
+
+  <!-- ── PWA: Service Worker + Install Prompt ─────────────────────────────── -->
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+          .catch(err => console.warn('[PWA] SW registration failed:', err));
+      });
+    }
+
+    // Install prompt
+    let deferredPrompt = null;
+    const banner = document.getElementById('pwaInstallBanner');
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaInstallDismiss');
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // Show banner only if not previously dismissed
+      if (!localStorage.getItem('pwa-dismissed')) {
+        banner.style.display = 'flex';
+      }
+    });
+
+    installBtn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      banner.style.display = 'none';
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] Install outcome:', outcome);
+      deferredPrompt = null;
+    });
+
+    dismissBtn?.addEventListener('click', () => {
+      banner.style.display = 'none';
+      localStorage.setItem('pwa-dismissed', '1');
+    });
+
+    // Hide banner once installed
+    window.addEventListener('appinstalled', () => {
+      banner.style.display = 'none';
+      deferredPrompt = null;
+      console.log('[PWA] App installed successfully!');
+    });
+  </script>
+</body>
+
+</html>

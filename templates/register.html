@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Create Account – FoodRush{% endblock %}
+{% block content %}
+<section class="auth-section">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-header">
+            <div class="auth-logo">🍔</div>
+            <h1>Join FoodRush</h1>
+            <p>Create your account and start ordering</p>
+        </div>
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="regForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" name="name" placeholder="John Doe" required autocomplete="name" />
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email Address</label>
+                    <input type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <div class="pw-wrap">
+                        <input type="password" name="password" id="pw1" placeholder="Min. 6 chars" required
+                            minlength="6" />
+                        <button type="button" class="toggle-pw" onclick="togglePwReg('pw1','ico1')"><i
+                                class="fas fa-eye" id="ico1"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Confirm Password</label>
+                    <div class="pw-wrap">
+                        <input type="password" name="confirm_password" id="pw2" placeholder="Repeat password"
+                            required />
+                        <button type="button" class="toggle-pw" onclick="togglePwReg('pw2','ico2')"><i
+                                class="fas fa-eye" id="ico2"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Food Preference -->
+            <div class="form-group">
+                <label><i class="fas fa-utensils"></i> Food Preference</label>
+                <div class="pref-grid">
+                    <label class="pref-option">
+                        <input type="radio" name="food_pref" value="veg" onchange="prefChange()" />
+                        <div class="pref-box">🌿<br><strong>Veg Only</strong></div>
+                    </label>
+                    <label class="pref-option">
+                        <input type="radio" name="food_pref" value="non-veg" onchange="prefChange()" />
+                        <div class="pref-box">🍗<br><strong>Non-Veg</strong></div>
+                    </label>
+                    <label class="pref-option">
+                        <input type="radio" name="food_pref" value="both" checked onchange="prefChange()" />
+                        <div class="pref-box">🍱<br><strong>Both</strong></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Non-Veg Day Selector -->
+            <div class="form-group" id="nvDaysBox" style="display:none">
+                <label><i class="fas fa-calendar-day"></i> Non-Veg days</label>
+                <div class="day-selector">
+                    {% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+                    <label class="day-chip-label">
+                        <input type="checkbox" name="nonveg_days" value="{{ d }}" />
+                        <span>{{ d }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn-gradient btn-block">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+        <div class="auth-divider"><span>Already have an account?</span></div>
+        <a href="{{ url_for('login') }}" class="btn-outline btn-block">
+            <i class="fas fa-sign-in-alt"></i> Sign In
+        </a>
+    </div>
+</section>
+<script>
+    function prefChange() {
+        const v = document.querySelector('input[name="food_pref"]:checked').value;
+        document.getElementById('nvDaysBox').style.display = (v === 'non-veg' || v === 'both') ? 'block' : 'none';
+    }
+    function togglePwReg(id, iconId) {
+        const inp = document.getElementById(id);
+        const ico = document.getElementById(iconId);
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+        ico.classList.toggle('fa-eye'); ico.classList.toggle('fa-eye-slash');
+    }
+    document.getElementById('regForm').addEventListener('submit', e => {
+        const p1 = document.getElementById('pw1').value;
+        const p2 = document.getElementById('pw2').value;
+        if (p1 !== p2) { e.preventDefault(); alert('Passwords do not match!'); }
+    });
+    prefChange();
+</script>
+{% endblock %}

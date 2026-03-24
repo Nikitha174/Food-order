@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admin Login – FoodRush{% endblock %}
+{% block content %}
+<section class="admin-login-section">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">🛡️</div>
+            <h1>Admin Access</h1>
+            <p>Enter your admin password to continue</p>
+        </div>
+        <form method="POST" action="{{ url_for('admin') }}" class="auth-form">
+            <div class="form-group">
+                <label><i class="fas fa-lock"></i> Admin Password</label>
+                <input type="password" name="password" placeholder="Enter password" required autofocus />
+            </div>
+            <button type="submit" class="btn-gradient btn-block">
+                <i class="fas fa-user-shield"></i> Access Admin Panel
+            </button>
+        </form>
+        <div style="text-align:center; margin-top: 20px;">
+            <a href="{{ url_for('index') }}" class="btn-outline">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

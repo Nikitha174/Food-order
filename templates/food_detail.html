@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ food.name }} - FoodRush{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="back-link"><i class="fas fa-arrow-left"></i> Back to Menu</a>
+    </div>
+</div>
+
+<section class="food-detail-section">
+    <div class="container">
+        <div class="food-detail-layout">
+            <!-- Image -->
+            <div class="food-detail-image">
+                <img src="{{ url_for('static', filename='images/' + food.image) }}" alt="{{ food.name }}"
+                    onerror="this.src='{{ url_for('static', filename='images/default.png') }}'" />
+                <span class="veg-badge-lg {% if food.is_veg %}veg{% else %}non-veg{% endif %}">
+                    {% if food.is_veg %}🌿 Pure Veg{% else %}🍗 Non-Veg{% endif %}
+                </span>
+            </div>
+
+            <!-- Info -->
+            <div class="food-detail-info">
+                <span class="detail-category">{{ food.category }}</span>
+                <h1>{{ food.name }}</h1>
+                <div class="detail-rating">
+                    <span class="stars">⭐ {{ food.rating }}</span>
+                    <span class="review-count">({{ reviews|length }} reviews)</span>
+                </div>
+                <p class="detail-desc">{{ food.description }}</p>
+                {% if food.tags %}
+                <div class="detail-tags">
+                    {% for tag in food.tags.split(',') %}
+                    <span class="tag">{{ tag.strip() }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="detail-price-row">
+                    <span class="detail-price">₹{{ food.price | int }}</span>
+                    <button class="btn-gradient btn-large" onclick="addToCart({{ food.id }}, this)">
+                        <i class="fas fa-shopping-cart"></i> Add to Cart
+                    </button>
+                </div>
+                <div class="detail-delivery">
+                    <i class="fas fa-truck"></i> Free delivery · Arrives in 25-30 min
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="reviews-section">
+            <h2>Reviews & Ratings</h2>
+
+            <!-- Submit Review -->
+            <div class="review-form-card">
+                <h3><i class="fas fa-pen"></i> Write a Review</h3>
+                <input type="text" id="reviewName" placeholder="Your name (optional)" />
+                <textarea id="reviewText" rows="3" placeholder="Share your experience…"></textarea>
+                <button class="btn-gradient" onclick="submitReview({{ food.id }})">
+                    <i class="fas fa-paper-plane"></i> Submit Review
+                </button>
+                <div id="reviewResult" class="review-result hidden"></div>
+            </div>
+
+            <!-- Reviews List -->
+            <div class="reviews-list" id="reviewsList">
+                {% if reviews %}
+                {% for rev in reviews %}
+                <div class="review-card">
+                    <div class="review-header">
+                        <div class="review-avatar">{{ rev.reviewer_name[0].upper() }}</div>
+                        <div>
+                            <strong>{{ rev.reviewer_name }}</strong>
+                            <small>{{ rev.created_at[:10] }}</small>
+                        </div>
+                        <span class="sentiment-badge sentiment-{{ rev.sentiment|lower }}">
+                            {% if rev.sentiment == 'Positive' %}😊 Positive
+                            {% elif rev.sentiment == 'Negative' %}😞 Negative
+                            {% else %}😐 Neutral{% endif %}
+                        </span>
+                    </div>
+                    <p class="review-text">{{ rev.review_text }}</p>
+                    <div class="sentiment-score">
+                        Sentiment Score: <strong>{{ rev.sentiment_score }}</strong>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="no-reviews">No reviews yet. Be the first!</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    async function submitReview(foodId) {
+        const name = document.getElementById('reviewName').value || 'Anonymous';
+        const text = document.getElementById('reviewText').value.trim();
+        if (!text) { alert('Please write a review!'); return; }
+
+        const res = await fetch('/submit-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ food_id: foodId, name, text })
+        });
+        const data = await res.json();
+        const resultEl = document.getElementById('reviewResult');
+        resultEl.className = 'review-result sentiment-' + data.sentiment.toLowerCase();
+        resultEl.innerHTML = `<i class="fas fa-check-circle"></i> Review submitted! Sentiment: <strong>${data.sentiment}</strong> (score: ${data.score})`;
+        document.getElementById('reviewText').value = '';
+        document.getElementById('reviewName').value = '';
+
+        // Prepend new review card
+        const list = document.getElementById('reviewsList');
+        const noRev = list.querySelector('.no-reviews');
+        if (noRev) noRev.remove();
+        const card = document.createElement('div');
+        const sClass = data.sentiment.toLowerCase();
+        const emoji = data.sentiment === 'Positive' ? '😊' : data.sentiment === 'Negative' ? '😞' : '😐';
+        card.className = 'review-card animate-in';
+        card.innerHTML = `
+    <div class="review-header">
+      <div class="review-avatar">${name[0].toUpperCase()}</div>
+      <div><strong>${name}</strong><small>Just now</small></div>
+      <span class="sentiment-badge sentiment-${sClass}">${emoji} ${data.sentiment}</span>
+    </div>
+    <p class="review-text">${text}</p>
+    <div class="sentiment-score">Sentiment Score: <strong>${data.score}</strong></div>`;
+        list.prepend(card);
+    }
+</script>
+{% endblock %}
