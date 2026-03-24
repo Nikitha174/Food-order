@@ -2429,6 +2429,25 @@ button {
     }
 }
 
+/* Input glows red while voice is listening */
+.chatbot-input-area input.listening {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .15);
+    animation: inputPulse 1.2s infinite;
+}
+
+@keyframes inputPulse {
+
+    0%,
+    100% {
+        border-color: var(--red);
+    }
+
+    50% {
+        border-color: rgba(239, 68, 68, .4);
+    }
+}
+
 /* ── Admin Login ──────────────────────────────────────────── */
 .admin-login-section {
     min-height: calc(100vh - var(--navbar-h));

@@ -1,10 +1,26 @@
-import os, json, sqlite3, hashlib, uuid
+import os, json, sqlite3, hashlib, uuid, re, string
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from nltk.stem import PorterStemmer
+import nltk
+
+# ── Download NLTK data (only first run) ───────────────────────────────────────
+for _pkg in ['stopwords', 'punkt']:
+    try:
+        nltk.data.find(f'corpora/{_pkg}' if _pkg == 'stopwords' else f'tokenizers/{_pkg}')
+    except LookupError:
+        nltk.download(_pkg, quiet=True)
+
+from nltk.corpus import stopwords
+_STOP_WORDS = set(stopwords.words('english')) - {
+    # Keep food-domain negations and important words
+    'no', 'not', 'only', 'under', 'low', 'hot', 'cold'
+}
+_stemmer = PorterStemmer()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -47,15 +63,101 @@ TRAINING_DATA = [
     ("book a flight ticket", "invalid"), ("I want to buy furniture", "invalid"),
     ("buy a house", "invalid"), ("order a smartphone", "invalid"),
     ("t-shirts and jeans", "invalid"), ("medicine or beauty products", "invalid"),
+    # ── Extra non-veg: ordering & meal-time phrases ───────────────────────────
+    ("order chicken biryani", "non-veg"),
+    ("order chicken biryani for lunch", "non-veg"),
+    ("order chicken biryani for my lunch", "non-veg"),
+    ("I want chicken biryani for lunch", "non-veg"),
+    ("order mutton biryani for dinner", "non-veg"),
+    ("biryani with chicken please", "non-veg"),
+    ("chicken for lunch", "non-veg"),
+    ("order chicken burger", "non-veg"),
+    ("egg biryani please", "non-veg"),
+    ("I want to eat biryani", "non-veg"),
+    ("order biryani for me", "non-veg"),
+    ("chicken pizza please", "non-veg"),
+    ("mutton curry", "non-veg"),
+    ("I want non veg food for lunch", "non-veg"),
+    ("BBQ chicken for dinner", "non-veg"),
+    # ── Extra veg ─────────────────────────────────────────────────────────────
+    ("order vegetarian food", "veg"),
+    ("plant based food", "veg"),
+    ("pure veg meal", "veg"),
+    ("vegetarian meal for lunch", "veg"),
+    ("order veg pizza", "veg"),
+    ("veg burger please", "veg"),
+    ("I want paneer dishes", "veg"),
+    # ── Extra spicy ───────────────────────────────────────────────────────────
+    ("I am craving something spicy", "spicy"),
+    ("I want spicy food for lunch", "spicy"),
+    ("order spicy food", "spicy"),
+    # ── Extra sweet ───────────────────────────────────────────────────────────
+    ("order a sweet dish", "sweet"),
+    ("I want gulab jamun", "sweet"),
+    ("dessert for tonight", "sweet"),
+    ("kulfi or ice cream please", "sweet"),
+    # ── Extra cheap ───────────────────────────────────────────────────────────
+    ("order something cheap", "cheap"),
+    ("food within budget", "cheap"),
+    ("inexpensive meal options", "cheap"),
+    # ── Extra healthy ─────────────────────────────────────────────────────────
+    ("order healthy food", "healthy"),
+    ("fitness meal please", "healthy"),
+    ("something light for dinner", "healthy"),
+    # ── Extra spicy_veg ───────────────────────────────────────────────────────
+    ("spicy paneer dishes", "spicy_veg"),
+    ("order spicy veg pizza", "spicy_veg"),
+    # ── Extra spicy_nonveg ────────────────────────────────────────────────────
+    ("spicy chicken biryani", "spicy_nonveg"),
+    ("spicy zinger burger", "spicy_nonveg"),
+    ("extra hot chicken", "spicy_nonveg"),
+    # ── Extra invalid (non-food items only) ───────────────────────────────────
+    ("I need a job", "invalid"),
+    ("show me some jewellery", "invalid"),
+    ("book a hotel room", "invalid"),
+    ("I want to buy headphones", "invalid"),
+    ("cricket bat price", "invalid"),
+    ("show me toys for kids", "invalid"),
 ]
+# ── NLP Text Preprocessor ────────────────────────────────────────────────────
+def preprocess_text(text: str) -> str:
+    """Full NLP preprocessing pipeline:
+    1. Lowercase normalization
+    2. Remove URLs, emails, special characters
+    3. Remove punctuation
+    4. Tokenize
+    5. Remove stopwords (keeping food-domain important words)
+    6. Porter Stemming
+    7. Rejoin tokens
+    """
+    # 1. Lowercase
+    text = text.lower().strip()
+    # 2. Remove URLs and emails
+    text = re.sub(r'http\S+|www\.\S+|\S+@\S+', '', text)
+    # 3. Remove punctuation (keep spaces)
+    text = text.translate(str.maketrans(string.punctuation, ' ' * len(string.punctuation)))
+    # 4. Collapse multiple spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    # 5. Tokenize, remove stopwords, and stem
+    tokens = [
+        _stemmer.stem(tok)
+        for tok in text.split()
+        if tok not in _STOP_WORDS and len(tok) > 1
+    ]
+    return ' '.join(tokens) if tokens else text
+
+# ── Build & train the NLP pipeline ───────────────────────────────────────────
 _texts, _labels = zip(*TRAINING_DATA)
-_vec = TfidfVectorizer(ngram_range=(1, 2))
-_X   = _vec.fit_transform(_texts)
-_clf = LogisticRegression(max_iter=500)
+_processed_texts = [preprocess_text(t) for t in _texts]   # preprocess training data
+_vec = TfidfVectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True)
+_X   = _vec.fit_transform(_processed_texts)
+_clf = LogisticRegression(max_iter=1000, C=1.5, solver='lbfgs')
 _clf.fit(_X, _labels)
 
 def classify_intent(text: str) -> str:
-    return _clf.predict(_vec.transform([text]))[0]
+    """Preprocess input text then classify intent."""
+    processed = preprocess_text(text)
+    return _clf.predict(_vec.transform([processed]))[0]
 
 # ── DB Helpers ────────────────────────────────────────────────────────────────
 def get_db():
@@ -494,44 +596,76 @@ def orders():
 
 @app.route("/chatbot", methods=["POST"])
 def chatbot():
-    msg = (request.get_json() or {}).get("message","").strip()
-    if not msg:
+    raw_msg = (request.get_json() or {}).get("message","").strip()
+    if not raw_msg:
         return jsonify({"reply":"Please type a message!", "foods":[]})
+
+    # ── Text preprocessing pipeline ───────────────────────────────────────────
+    # Keep original for display, use processed for NLP
+    msg_display = raw_msg
+    msg_clean   = raw_msg.lower().strip()   # lowercased for keyword search
 
     conn = get_db()
 
-    # Step 1: Try to find food items by name keywords first (exact match priority)
-    words = [w for w in msg.lower().split() if len(w) > 2]
-    name_foods = []
-    if words:
-        placeholders = " OR ".join(["name LIKE ?" for _ in words])
-        params = [f"%{w}%" for w in words]
-        name_foods = conn.execute(
-            f"SELECT * FROM food_items WHERE is_available=1 AND ({placeholders}) ORDER BY rating DESC LIMIT 4",
-            params).fetchall()
+    # Step 1: Classify intent first — used to filter name-keyword results too
+    intent = classify_intent(raw_msg)
 
-    # Step 2: Use intent classifier as fallback
-    intent = classify_intent(msg)
+    # Intent → SQL filter (applied to ALL searches, including name matches)
+    intent_sql_map = {
+        "spicy":        "tags LIKE '%spicy%'",
+        "sweet":        "tags LIKE '%sweet%'",
+        "cheap":        "price < 120",
+        "healthy":      "tags LIKE '%healthy%'",
+        "veg":          "is_veg=1",
+        "non-veg":      "is_veg=0",
+        "spicy_veg":    "is_veg=1 AND tags LIKE '%spicy%'",
+        "spicy_nonveg": "is_veg=0 AND tags LIKE '%spicy%'",
+    }
+    intent_filter = intent_sql_map.get(intent, "1=1")
+
+    # Step 2: Keyword-based name search (filtered by intent too)
+    raw_words   = msg_clean.split()
+    # Exclude stop words AND broad food-category words that cause false positives
+    stop_ignore = {
+        'i','a','an','the','me','my','some','show','give','want','get',
+        'need','please','have','can','do','would','could','is','are',
+        'food','veg','non','only','items','dishes','options','meal','meals'
+    }
+    keywords = [w for w in raw_words if len(w) > 2 and w not in stop_ignore]
+    name_foods = []
+    if keywords:
+        name_placeholders = " OR ".join(["LOWER(name) LIKE ? OR LOWER(category) LIKE ?" for _ in keywords])
+        name_params = [p for w in keywords for p in (f"%{w}%", f"%{w}%")]
+
+        if intent == "invalid":
+            # Safety override: if classifier says invalid but user mentioned real
+            # food items by name, still show them (ignore invalid label)
+            name_foods = conn.execute(
+                f"SELECT * FROM food_items WHERE is_available=1 AND ({name_placeholders}) ORDER BY rating DESC LIMIT 4",
+                name_params).fetchall()
+        else:
+            name_foods = conn.execute(
+                f"SELECT * FROM food_items WHERE is_available=1 AND ({intent_filter}) AND ({name_placeholders}) ORDER BY rating DESC LIMIT 4",
+                name_params).fetchall()
+
+    # If name_foods found for an "invalid" classified query, override to non-veg
+    if name_foods and intent == "invalid":
+        intent = "non-veg"   # Most specific fallback for named food items
 
     if intent == "invalid":
         conn.close()
-        return jsonify({"reply":"🚫 Invalid item! I only know about food. Try asking for biryani, pizza, or burgers! 🍔", "intent":"invalid", "foods":[]})
+        return jsonify({
+            "reply": "🚫 I only help with food orders! Try asking for 'chicken biryani', 'spicy food', or 'veg options' 🍔",
+            "intent": "invalid",
+            "foods": []
+        })
 
-    foods = name_foods  # Use name matches if found
+    foods = name_foods  # Keyword matches (already intent-filtered)
 
     if not foods:
-        intent_sql = {
-            "spicy":        "tags LIKE '%spicy%'",
-            "sweet":        "tags LIKE '%sweet%'",
-            "cheap":        "price < 120",
-            "healthy":      "tags LIKE '%healthy%'",
-            "veg":          "is_veg=1",
-            "non-veg":      "is_veg=0",
-            "spicy_veg":    "is_veg=1 AND tags LIKE '%spicy%'",
-            "spicy_nonveg": "is_veg=0 AND tags LIKE '%spicy%'",
-        }.get(intent, "1=1")
+        # Fall back to pure intent-based results
         foods = conn.execute(
-            f"SELECT * FROM food_items WHERE is_available=1 AND ({intent_sql}) ORDER BY rating DESC LIMIT 4"
+            f"SELECT * FROM food_items WHERE is_available=1 AND ({intent_filter}) ORDER BY rating DESC LIMIT 4"
         ).fetchall()
     conn.close()
 
@@ -547,12 +681,17 @@ def chatbot():
     }
 
     if name_foods:
-        reply = f"🍽️ Here's what I found for '{msg}':"
+        reply = f"🍽️ Here's what I found for '{msg_display}':"
+    elif not foods:
+        reply = "🤔 Hmm, I couldn't find anything matching that. Try 'spicy food', 'veg options', or 'cheap meals'!"
     else:
         reply = replies.get(intent, "Here are some recommendations:")
 
-    food_list = [{"id":f["id"],"name":f["name"],"price":f["price"],
-                  "rating":f["rating"],"image":f["image"],"category":f["category"]} for f in foods]
+    food_list = [
+        {"id": f["id"], "name": f["name"], "price": f["price"],
+         "rating": f["rating"], "image": f["image"], "category": f["category"]}
+        for f in foods
+    ]
     return jsonify({"reply": reply, "intent": intent, "foods": food_list})
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -636,6 +775,12 @@ def admin_logout():
     return redirect(url_for("index"))
 
 
+# ── Initialize DB on startup (works for both gunicorn & flask dev) ───────────
+# Must be outside __main__ so gunicorn triggers it on import
+init_db()
+
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=True, port=5000)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") != "production"
+    app.run(debug=debug, host="0.0.0.0", port=port)
